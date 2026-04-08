@@ -1,0 +1,32 @@
+export const initialLinks = [
+  {
+    id: 'lnk_001',
+    title: 'Spring campaign landing page',
+    longUrl: 'https://example.com/spring-launch?utm_source=newsletter',
+    shortUrl: 'http://localhost:3001/spring24',
+    code: 'spring24',
+    clicks: 1842,
+    createdAt: '2 minutes ago',
+    status: 'Active',
+  },
+  {
+    id: 'lnk_002',
+    title: 'Pricing page for social ads',
+    longUrl: 'https://example.com/pricing',
+    shortUrl: 'http://localhost:3001/price',
+    code: 'price',
+    clicks: 912,
+    createdAt: '18 minutes ago',
+    status: 'Active',
+  },
+  {
+    id: 'lnk_003',
+    title: 'Product demo for investors',
+    longUrl: 'https://example.com/demo?ref=deck',
+    shortUrl: 'http://localhost:3001/demo24',
+    code: 'demo24',
+    clicks: 351,
+    createdAt: '1 hour ago',
+    status: 'Scheduled',
+  },
+]
