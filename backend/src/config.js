@@ -12,3 +12,5 @@ export const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`
 export const CLIENT_URL = process.env.CLIENT_URL || `http://localhost:5173`
 export const REDIS_URL = process.env.REDIS_URL || ''
 export const REDIS_TTL_SECONDS = Number(process.env.REDIS_TTL_SECONDS || 3600)
+export const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production'
+export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'

@@ -1,16 +1,30 @@
 function ShortifyLogo({ compact = false }) {
   return (
-    <div className={`shortify-logo${compact ? ' shortify-logo-compact' : ''}`}>
-      <div className="shortify-logo-mark" aria-hidden="true">
-        <svg viewBox="0 0 48 48" className="shortify-logo-icon" role="presentation" focusable="false">
-          <path d="M15 17c0-3.9 3.1-7 7-7h10.5C37 10 40 13 40 16.5S37 23 32.5 23H22c-2.2 0-4 1.8-4 4s1.8 4 4 4h11.4" />
-          <path d="M33 31c0 3.9-3.1 7-7 7H15.5C11 38 8 35 8 31.5S11 25 15.5 25H26c2.2 0 4-1.8 4-4s-1.8-4-4-4H14.6" />
+    <div className={`logo${compact ? ' logo-compact' : ''}`}>
+      <div className="logo-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="32" height="32" fill="none">
+          <rect width="32" height="32" rx="10" fill="url(#logoGrad)" />
+          <path
+            d="M11 12.5c0-1.93 1.57-3.5 3.5-3.5H19c1.93 0 3.5 1.57 3.5 3.5S20.93 16 19 16h-4.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5H19.5"
+            stroke="#fff"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <path
+            d="M21 19.5c0 1.93-1.57 3.5-3.5 3.5H13c-1.93 0-3.5-1.57-3.5-3.5S11.07 16 13 16h4.5c.83 0 1.5-.67 1.5-1.5S18.33 13 17.5 13H12.5"
+            stroke="#fff"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <defs>
+            <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32">
+              <stop stopColor="#6366f1" />
+              <stop offset="1" stopColor="#8b5cf6" />
+            </linearGradient>
+          </defs>
         </svg>
       </div>
-      <div className="shortify-logo-text">
-        <strong>Shortify</strong>
-        {/* {!compact ? <span>Branded short links</span> : null} */}
-      </div>
+      <span className="logo-text">Shortify</span>
     </div>
   )
 }

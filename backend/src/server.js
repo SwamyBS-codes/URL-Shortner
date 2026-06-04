@@ -12,18 +12,87 @@ import {
   verifyLinkPassword,
   getLinkAnalyticsSummary,
   getAllLinks,
+  checkAliasAvailability,
+  updateShortLink,
+  deleteShortLink,
+  bulkUpdateLinks,
+  getLinkSettings,
 } from './services/linkService.js'
 import { getLinkByCode, listLinks } from './data/linkStore.js'
-import { generalRateLimiter, createLinkRateLimiter } from './middleware/rateLimiter.js'
+import { extractVisitMetadata } from './utils/visitMetadata.js'
+import { optionalAuth } from './middleware/optionalAuth.js'
+import { registerUser, loginUser, getUserProfile } from './services/authService.js'
 
 const app = express()
+app.set('trust proxy', 1)
 app.use(helmet())
-app.use(express.json())
-app.use(cors())
-app.use(generalRateLimiter)
+app.use(express.json({ limit: '16kb' }))
+app.use(cors({ origin: process.env.CLIENT_URL || true }))
+app.use(optionalAuth)
+
+function handleServiceError(res, error, fallback = 'Request failed') {
+  const message = error.message || fallback
+
+  if (error.code === 'INVALID_PASSWORD') {
+    return res.status(401).json({ error: message })
+  }
+  if (error.code === 'EXPIRED') {
+    return res.status(410).json({ error: message, code: 'EXPIRED' })
+  }
+  if (error.code === 'INACTIVE') {
+    return res.status(403).json({ error: message, code: 'INACTIVE' })
+  }
+  if (error.code === 'FORBIDDEN') {
+    return res.status(403).json({ error: message })
+  }
+  if (/already exists/i.test(message)) {
+    return res.status(409).json({ error: message })
+  }
+  if (/required|invalid|must be|unsupported|reserved|unavailable/i.test(message)) {
+    return res.status(400).json({ error: message })
+  }
+  if (/not found/i.test(message)) {
+    return res.status(404).json({ error: message })
+  }
+
+  return res.status(500).json({ error: message })
+}
 
 app.get('/', (req, res) => {
   res.send('URL Shortener backend is running')
+})
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const result = await registerUser(req.body)
+    res.json({ success: true, ...result })
+  } catch (error) {
+    console.error('Registration failed:', error)
+    handleServiceError(res, error, 'Registration failed')
+  }
+})
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const result = await loginUser(req.body)
+    res.json({ success: true, ...result })
+  } catch (error) {
+    console.error('Login failed:', error)
+    handleServiceError(res, error, 'Login failed')
+  }
+})
+
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.json({ success: true, user: null })
+    }
+    const user = await getUserProfile(req.user.id)
+    res.json({ success: true, user })
+  } catch (error) {
+    console.error('Profile fetch failed:', error)
+    handleServiceError(res, error, 'Failed to fetch profile')
+  }
 })
 
 app.get('/api/listAllLinks', async (req, res) => {
@@ -37,7 +106,7 @@ app.get('/api/listAllLinks', async (req, res) => {
 
 app.get('/api/links', async (req, res) => {
   try {
-    const result = await getAllLinks()
+    const result = await getAllLinks(req.user?.id ?? null)
     res.json(result)
   } catch (error) {
     console.error('Error listing links:', error)
@@ -54,44 +123,84 @@ app.get('/api/getLinkByCode/:code', async (req, res) => {
   }
 })
 
-app.get('/api/links/:code', async (req, res) => {
+app.get('/api/aliases/:alias/check', async (req, res) => {
   try {
-    const metadata = await getLinkMetadata(req.params.code)
-    res.json({ success: true, link: metadata })
+    const result = await checkAliasAvailability(req.params.alias)
+    res.json(result)
   } catch (error) {
-    console.error('Error fetching link metadata:', error)
-    res.status(404).json({ error: error.message })
+    console.error('Error checking alias:', error)
+    res.status(500).json({ error: 'Failed to check alias availability' })
   }
 })
 
-app.post('/api/createlink', createLinkRateLimiter, async (req, res) => {
+app.post('/api/links/bulk', async (req, res) => {
   try {
-    const result = await createShortLink(req.body)
+    const result = await bulkUpdateLinks(req.body, req.user?.id ?? null)
+    res.json(result)
+  } catch (error) {
+    console.error('Bulk link action failed:', error)
+    handleServiceError(res, error, 'Bulk action failed')
+  }
+})
+
+app.get('/api/links/:code/settings', async (req, res) => {
+  try {
+    const settings = await getLinkSettings(req.params.code, req.user?.id ?? null)
+    res.json({ success: true, link: settings })
+  } catch (error) {
+    console.error('Error fetching link settings:', error)
+    handleServiceError(res, error, 'Failed to fetch link settings')
+  }
+})
+
+app.get('/api/links/:code', async (req, res) => {
+  try {
+    const metadata = await getLinkMetadata(req.params.code, { hideDestination: true })
+    res.json({ success: true, link: metadata })
+  } catch (error) {
+    console.error('Error fetching link metadata:', error)
+    handleServiceError(res, error, 'Failed to fetch link metadata')
+  }
+})
+
+app.post('/api/createlink', async (req, res) => {
+  try {
+    const result = await createShortLink(req.body, req.user?.id ?? null)
     res.json(result)
   } catch (error) {
     console.error('Error creating short link:', error)
-    const message = error.message || 'Failed to create short link'
+    handleServiceError(res, error, 'Failed to create short link')
+  }
+})
 
-    if (/already exists/i.test(message)) {
-      return res.status(409).json({ error: message })
-    }
+app.put('/api/links/:code', async (req, res) => {
+  try {
+    const result = await updateShortLink(req.params.code, req.body, req.user?.id ?? null)
+    res.json(result)
+  } catch (error) {
+    console.error('Error updating link:', error)
+    handleServiceError(res, error, 'Failed to update link')
+  }
+})
 
-    if (/required|invalid|must be|unsupported|reserved/i.test(message)) {
-      return res.status(400).json({ error: message })
-    }
-
-    res.status(500).json({ error: message })
+app.delete('/api/links/:code', async (req, res) => {
+  try {
+    const result = await deleteShortLink(req.params.code, req.user?.id ?? null)
+    res.json(result)
+  } catch (error) {
+    console.error('Error deleting link:', error)
+    handleServiceError(res, error, 'Failed to delete link')
   }
 })
 
 app.post('/api/links/:code/verify', async (req, res) => {
   try {
-    const url = await verifyLinkPassword(req.params.code, req.body.password)
+    const visitMetadata = extractVisitMetadata(req)
+    const url = await verifyLinkPassword(req.params.code, req.body.password, visitMetadata)
     res.json({ success: true, redirect_url: url })
   } catch (error) {
     console.error('Password verification failed:', error)
-    const status = error.code === 'INVALID_PASSWORD' ? 401 : 400
-    res.status(status).json({ error: error.message })
+    handleServiceError(res, error, 'Password verification failed')
   }
 })
 
@@ -101,13 +210,13 @@ app.get('/api/links/:code/analytics', async (req, res) => {
     res.json({ success: true, analytics })
   } catch (error) {
     console.error('Error fetching analytics:', error)
-    res.status(500).json({ error: error.message })
+    handleServiceError(res, error, 'Failed to fetch analytics')
   }
 })
 
 app.get('/api/dashboard', async (req, res) => {
   try {
-    const summary = await getDashboardSummary()
+    const summary = await getDashboardSummary(req.user?.id ?? null)
     res.json(summary)
   } catch (error) {
     console.error('Error fetching dashboard summary:', error)
@@ -115,35 +224,33 @@ app.get('/api/dashboard', async (req, res) => {
   }
 })
 
-app.get('/api/resolveLink/:code', async (req, res, next) => {
+async function handleRedirect(req, res, next) {
   try {
-    const location = await resolveShortLink(req.params.code)
+    const visitMetadata = extractVisitMetadata(req)
+    const location = await resolveShortLink(req.params.code, visitMetadata)
     res.redirect(302, location)
   } catch (err) {
     if (err.code === 'PASSWORD_REQUIRED') {
       return res.redirect(`${CLIENT_URL}/access/${req.params.code}`)
     }
     if (err.code === 'EXPIRED') {
-      return res.status(410).json({ error: err.message })
+      return res.redirect(`${CLIENT_URL}/expired/${req.params.code}`)
+    }
+    if (err.code === 'NOT_YET_ACTIVE') {
+      return res.redirect(`${CLIENT_URL}/scheduled/${req.params.code}`)
+    }
+    if (err.code === 'INACTIVE') {
+      return res.redirect(`${CLIENT_URL}/disabled/${req.params.code}`)
+    }
+    if (/not found/i.test(err.message)) {
+      return res.status(404).json({ error: err.message })
     }
     next(err)
   }
-})
+}
 
-app.get('/:code', async (req, res, next) => {
-  try {
-    const location = await resolveShortLink(req.params.code)
-    res.redirect(302, location)
-  } catch (err) {
-    if (err.code === 'PASSWORD_REQUIRED') {
-      return res.redirect(`${CLIENT_URL}/access/${req.params.code}`)
-    }
-    if (err.code === 'EXPIRED') {
-      return res.status(410).json({ error: err.message })
-    }
-    next(err)
-  }
-})
+app.get('/api/resolveLink/:code', handleRedirect)
+app.get('/:code', handleRedirect)
 
 async function startServer() {
   await setupDatabase()

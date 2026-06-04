@@ -45,13 +45,22 @@ export async function getCachedOriginalUrl(code) {
   }
 
   try {
-
-    const data=await client.get(keyForCode(code))
-    console.log('Cache get for code', code, 'returned', data)
-    return data;
+    return await client.get(keyForCode(code))
   } catch (error) {
     console.warn('Redis get failed:', error.message)
     return null
+  }
+}
+
+export async function deleteCachedOriginalUrl(code) {
+  if (!isReady || !client) {
+    return
+  }
+
+  try {
+    await client.del(keyForCode(code))
+  } catch (error) {
+    console.warn('Redis delete failed:', error.message)
   }
 }
 

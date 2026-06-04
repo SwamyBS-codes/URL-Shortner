@@ -1,25 +1,64 @@
 import httpClient from './httpClient'
+import { dateInputToEndIso, dateInputToStartIso } from '../utils/linkUtils'
+
+function getStatus(row) {
+  if (row.is_active === false || row.status === 'disabled') return 'Disabled'
+  if (row.starts_at && new Date(row.starts_at) > new Date()) return 'Scheduled'
+  if (row.expires_at && new Date(row.expires_at) < new Date()) return 'Expired'
+  if (row.is_password_protected || row.status === 'password_protected') return 'Password protected'
+  return 'Active'
+}
 
 function toUiLink(row) {
+  const shortUrl = row.short_url || row.shortUrl
+  let title = row.title
+  if (!title && row.original_url) {
+    try {
+      title = new URL(row.original_url).hostname.replace(/^www\./, '')
+    } catch {
+      title = 'Link'
+    }
+  }
+
   return {
     id: row.id,
-    title: new URL(row.original_url).hostname.replace(/^www\./, ''),
-    longUrl: row.original_url,
-    shortUrl: row.short_url,
+    title,
+    longUrl: row.original_url || row.longUrl,
+    shortUrl,
     code: row.code || row.short_code,
-    clicks: row.clicks,
-    createdAt: new Date(row.created_at).toLocaleString(),
-    customAlias: row.custom_alias || null,
-    passwordProtected: Boolean(row.is_password_protected),
+    clicks: row.click_count ?? row.clicks ?? 0,
+    createdAt: row.created_at ? new Date(row.created_at).toLocaleString() : row.createdAt,
+    customAlias: row.custom_alias || row.customAlias || null,
+    passwordProtected: Boolean(row.is_password_protected ?? row.passwordProtected ?? row.hasPassword),
     expiresAt: row.expires_at ? new Date(row.expires_at).toLocaleString() : null,
-    expirationType: row.expiration_type || 'none',
+    startsAt: row.starts_at ? new Date(row.starts_at).toLocaleString() : null,
+    startsAtIso: row.starts_at || null,
+    expiresAtIso: row.expires_at || null,
+    expirationType: row.expiration_type || row.expirationType || 'none',
     isActive: row.is_active !== false,
-    status: row.is_active === false ? 'Disabled' : row.expires_at && new Date(row.expires_at) < new Date() ? 'Expired' : row.is_password_protected ? 'Password protected' : 'Active',
+    status: getStatus(row),
+    folder: row.folder || null,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    canManage: Boolean(row.canManage),
+  }
+}
+
+function buildExpirationPayload(expirationType, startDate, endDate) {
+  if (expirationType !== 'custom_range') {
+    return { expirationType }
+  }
+  return {
+    expirationType,
+    expirationStartDate: dateInputToStartIso(startDate),
+    expirationEndDate: dateInputToEndIso(endDate),
   }
 }
 
 function parseAxiosError(error) {
-  return error?.response?.data?.error || error.message || 'Request failed'
+  const data = error?.response?.data
+  if (data?.message) return data.message
+  if (data?.error) return data.error
+  return error.message || 'Request failed'
 }
 
 export async function fetchAllLinks() {
@@ -32,28 +71,50 @@ export async function fetchAllLinks() {
 }
 
 export async function createLink(payload) {
-  let data
   try {
-    const response = await httpClient.post('/createlink', payload)
-    data = response.data
+    const body = { ...payload }
+    if (payload.expirationType === 'custom_range') {
+      Object.assign(body, buildExpirationPayload(payload.expirationType, payload.expirationStartDate, payload.expirationEndDate))
+      delete body.expirationStartDate
+      delete body.expirationEndDate
+    }
+    const { data } = await httpClient.post('/createlink', body)
+    return toUiLink(data)
   } catch (error) {
     throw new Error(parseAxiosError(error))
   }
+}
 
-  return {
-    id: data.id,
-    title: new URL(data.original_url).hostname.replace(/^www\./, ''),
-    longUrl: data.original_url,
-    shortUrl: data.short_url,
-    code: data.code || data.short_code,
-    clicks: data.clicks,
-    createdAt: new Date(data.created_at).toLocaleString(),
-    customAlias: data.custom_alias || null,
-    passwordProtected: Boolean(data.is_password_protected),
-    expiresAt: data.expires_at ? new Date(data.expires_at).toLocaleString() : null,
-    expirationType: data.expiration_type || 'none',
-    isActive: data.is_active !== false,
-    status: data.is_active === false ? 'Disabled' : data.expires_at && new Date(data.expires_at) < new Date() ? 'Expired' : data.is_password_protected ? 'Password protected' : 'Active',
+export async function updateLink(code, payload) {
+  try {
+    const body = { ...payload }
+    if (payload.expirationType === 'custom_range') {
+      Object.assign(body, buildExpirationPayload(payload.expirationType, payload.expirationStartDate, payload.expirationEndDate))
+      delete body.expirationStartDate
+      delete body.expirationEndDate
+    }
+    const { data } = await httpClient.put(`/links/${code}`, body)
+    return toUiLink(data)
+  } catch (error) {
+    throw new Error(parseAxiosError(error))
+  }
+}
+
+export async function deleteLink(code) {
+  try {
+    await httpClient.delete(`/links/${code}`)
+    return true
+  } catch (error) {
+    throw new Error(parseAxiosError(error))
+  }
+}
+
+export async function bulkLinksAction(action, codes, options = {}) {
+  try {
+    const { data } = await httpClient.post('/links/bulk', { action, codes, ...options })
+    return data
+  } catch (error) {
+    throw new Error(parseAxiosError(error))
   }
 }
 
@@ -65,3 +126,50 @@ export async function fetchDashboardSummary() {
     throw new Error(parseAxiosError(error))
   }
 }
+
+export async function checkAliasAvailability(alias) {
+  try {
+    const { data } = await httpClient.get(`/aliases/${encodeURIComponent(alias)}/check`)
+    return data
+  } catch (error) {
+    throw new Error(parseAxiosError(error))
+  }
+}
+
+export async function fetchLinkMetadata(code) {
+  try {
+    const { data } = await httpClient.get(`/links/${code}`)
+    return toUiLink(data.link)
+  } catch (error) {
+    throw new Error(parseAxiosError(error))
+  }
+}
+
+export async function fetchLinkSettings(code) {
+  try {
+    const { data } = await httpClient.get(`/links/${code}/settings`)
+    return toUiLink(data.link)
+  } catch (error) {
+    throw new Error(parseAxiosError(error))
+  }
+}
+
+export async function fetchLinkAnalytics(code) {
+  try {
+    const { data } = await httpClient.get(`/links/${code}/analytics`)
+    return data.analytics
+  } catch (error) {
+    throw new Error(parseAxiosError(error))
+  }
+}
+
+export async function verifyLinkPassword(code, password) {
+  try {
+    const { data } = await httpClient.post(`/links/${code}/verify`, { password })
+    return data
+  } catch (error) {
+    throw new Error(parseAxiosError(error))
+  }
+}
+
+export { buildExpirationPayload, dateInputToStartIso, dateInputToEndIso }

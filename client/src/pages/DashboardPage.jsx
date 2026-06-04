@@ -1,16 +1,25 @@
-import HeroSection from '../components/HeroSection'
-import LinkBuilderSection from '../components/LinkBuilderSection'
-import MetricsRow from '../components/MetricsRow'
-import TimelineSection from '../components/TimelineSection'
+import AppNavbar from '../components/layout/AppNavbar'
+import UrlShortener from '../components/UrlShortener'
+import LinksTable from '../components/dashboard/LinksTable'
+import LinkEditModal from '../components/dashboard/LinkEditModal'
 
 function DashboardPage() {
   return (
-    <main className="app-shell">
-      <HeroSection />
-      {/* <MetricsRow /> */}
-      <LinkBuilderSection />
-      {/* <TimelineSection /> */}
-    </main>
+    <div className="page">
+      <AppNavbar />
+      <main>
+        <UrlShortener />
+        <div className="container section">
+          <LinksTable />
+        </div>
+        <LinkEditModal />
+      </main>
+      <footer className="site-footer">
+        <div className="container footer-inner">
+          <p>© {new Date().getFullYear()} Shortify — Smart URL shortening</p>
+        </div>
+      </footer>
+    </div>
   )
 }
 

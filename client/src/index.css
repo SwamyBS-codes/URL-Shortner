@@ -1,31 +1,67 @@
-:root {
-  --ink: #121826;
-  --muted: #5c6576;
-  --panel: rgba(255, 250, 242, 0.86);
-  --bg: #f5efe4;
-  --border: rgba(18, 24, 38, 0.1);
-  --teal: #0f766e;
-  --teal-strong: #115e59;
-  --coral: #f97316;
-  --code-bg: rgba(15, 118, 110, 0.08);
-  --shadow-soft: 0 20px 50px rgba(18, 24, 38, 0.08);
-  --shadow-strong: 0 32px 70px rgba(18, 24, 38, 0.12);
+:root,
+[data-theme='light'] {
+  --ink: #0f172a;
+  --muted: #64748b;
+  --muted-light: #94a3b8;
+  --panel: #ffffff;
+  --panel-elevated: #f8fafc;
+  --bg: #f1f5f9;
+  --bg-accent: #eef2ff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --primary-soft: rgba(99, 102, 241, 0.1);
+  --accent: #8b5cf6;
+  --coral: #f43f5e;
+  --danger: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --code-bg: #f1f5f9;
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 30px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 20px 50px rgba(15, 23, 42, 0.12);
+  --glass: rgba(255, 255, 255, 0.85);
+  --input-bg: #ffffff;
+  --navbar-height: 72px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
 
-  --sans: 'Trebuchet MS', 'Avenir Next', 'Gill Sans', sans-serif;
-  --heading: 'Trebuchet MS', 'Franklin Gothic Medium', 'Arial Narrow Bold', sans-serif;
-  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --mono: 'SF Mono', 'Fira Code', Consolas, monospace;
 
-  font: 18px/1.5 var(--sans);
-  letter-spacing: 0.01em;
+  font: 16px/1.6 var(--sans);
   color: var(--ink);
-  background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 32%),
-    radial-gradient(circle at top right, rgba(249, 115, 22, 0.1), transparent 28%),
-    linear-gradient(180deg, #f7f2e8, #efe8da 60%, #f5efe4);
+  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme='dark'] {
+  --ink: #f1f5f9;
+  --muted: #94a3b8;
+  --muted-light: #64748b;
+  --panel: #1e293b;
+  --panel-elevated: #334155;
+  --bg: #0f172a;
+  --bg-accent: #1e1b4b;
+  --border: #334155;
+  --border-strong: #475569;
+  --primary: #818cf8;
+  --primary-hover: #a5b4fc;
+  --primary-soft: rgba(129, 140, 248, 0.15);
+  --code-bg: #334155;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --glass: rgba(15, 23, 42, 0.9);
+  --input-bg: #1e293b;
 }
 
 * {
@@ -40,10 +76,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.12), transparent 40%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 22%),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
 }
 
@@ -52,47 +85,34 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(18, 24, 38, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(18, 24, 38, 0.03) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.4), transparent 80%);
-  opacity: 0.7;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, var(--primary-soft), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(139, 92, 246, 0.08), transparent);
+  z-index: -1;
 }
 
 button,
 input,
+select,
+textarea,
 a {
   font: inherit;
 }
 
 button {
+  cursor: pointer;
   color: inherit;
 }
 
 a {
   color: inherit;
+  text-decoration: none;
 }
 
 #root {
   min-height: 100vh;
 }
 
-h1,
-h2,
-h3,
-p {
+h1, h2, h3, p {
   margin: 0;
-}
-
-code {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: 999px;
-  padding: 4px 10px;
-  background: var(--code-bg);
-  color: var(--teal-strong);
-  font-family: var(--mono);
-  font-size: 0.92rem;
 }

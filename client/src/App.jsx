@@ -1,8 +1,19 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './App.css'
+import { ThemeProvider } from './context/ThemeContext'
+import { AuthProvider } from './context/AuthContext'
 import { LinkWorkspaceProvider } from './context/LinkWorkspaceContext'
 import { ToastProvider } from './context/ToastContext'
 import DashboardPage from './pages/DashboardPage'
+import AccessPage from './pages/AccessPage'
+import ExpiredPage from './pages/ExpiredPage'
+import ScheduledPage from './pages/ScheduledPage'
+import DisabledPage from './pages/DisabledPage'
+import LinkDetailsPage from './pages/LinkDetailsPage'
+import AnalyticsPage from './pages/AnalyticsPage'
+import AuthModal from './components/auth/AuthModal'
 import { useLinkWorkspace } from './context/LinkWorkspaceContext'
+import { useAuth } from './context/AuthContext'
 import ToastViewport from './components/ToastViewport'
 import { useEffect, useState } from 'react'
 import ShortifyLogo from './components/ShortifyLogo'
@@ -10,65 +21,62 @@ import ShortifyLogo from './components/ShortifyLogo'
 function LoadingScreen() {
   return (
     <main className="loading-screen" aria-label="Loading Shortify">
-      <span className="loading-orb loading-orb-one" aria-hidden="true" />
-      <span className="loading-orb loading-orb-two" aria-hidden="true" />
       <div className="loading-card">
         <ShortifyLogo />
-        <div className="loading-copy">
-          <h1>Preparing your link dashboard</h1>
-          <p>Fetching recent links, metrics, and workspace state before you jump in.</p>
-        </div>
-        <div className="loading-progress" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
-        <div className="loading-status-grid" aria-hidden="true">
-          <div>
-            <strong>Syncing</strong>
-            <span>Link activity</span>
-          </div>
-          <div>
-            <strong>Loading</strong>
-            <span>Dashboard stats</span>
-          </div>
-          <div>
-            <strong>Ready soon</strong>
-            <span>Workspace shell</span>
-          </div>
-        </div>
+        <h1>Loading your workspace</h1>
+        <p>Fetching links and analytics…</p>
+        <div className="loading-spinner" />
       </div>
     </main>
   )
 }
 
-function AppContent() {
+function DashboardGate() {
   const { isLoading } = useLinkWorkspace()
+  const { isAuthLoading } = useAuth()
   const [minimumLoadingComplete, setMinimumLoadingComplete] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinimumLoadingComplete(true)
-    }, 1500)
-
+    const timer = setTimeout(() => setMinimumLoadingComplete(true), 600)
     return () => clearTimeout(timer)
   }, [])
 
-  if (isLoading || !minimumLoadingComplete) {
+  if (isLoading || isAuthLoading || !minimumLoadingComplete) {
     return <LoadingScreen />
   }
 
   return <DashboardPage />
 }
 
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<DashboardGate />} />
+      <Route path="/access/:code" element={<AccessPage />} />
+      <Route path="/scheduled/:code" element={<ScheduledPage />} />
+      <Route path="/disabled/:code" element={<DisabledPage />} />
+      <Route path="/expired/:code" element={<ExpiredPage />} />
+      <Route path="/links/:code" element={<LinkDetailsPage />} />
+      <Route path="/analytics/:code" element={<AnalyticsPage />} />
+    </Routes>
+  )
+}
+
 function App() {
   return (
-    <ToastProvider>
-      <LinkWorkspaceProvider>
-        <AppContent />
-        <ToastViewport />
-      </LinkWorkspaceProvider>
-    </ToastProvider>
+    <ThemeProvider>
+      <BrowserRouter>
+        <ToastProvider>
+          <AuthProvider>
+            <LinkWorkspaceProvider>
+              <AppRoutes />
+              <AuthModal />
+              <ToastViewport />
+            </LinkWorkspaceProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 

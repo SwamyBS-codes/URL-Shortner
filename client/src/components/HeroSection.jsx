@@ -2,26 +2,24 @@ import { useLinkWorkspace } from '../context/LinkWorkspaceContext'
 import ShortifyLogo from './ShortifyLogo'
 
 function HeroSection() {
-  const { statusMessage, loadError, actionError, generatedLink, primaryDomain, totalClicks } = useLinkWorkspace()
+  const { statusMessage, loadError, generatedLink, primaryDomain, totalClicks, quickStats } = useLinkWorkspace()
 
   return (
     <section className="hero-panel">
       <div className="hero-copy">
         <ShortifyLogo compact />
-        {/* <span className="eyebrow">Shortify suite</span> */}
-        <h1>Build short links that look sharp and ship fast.</h1>
+        <h1>Professional URL shortening, built for teams.</h1>
         <p className="hero-text">
-          Draft, preview, and organize short links in one focused workspace.
-          This UI stays fully local so you can iterate quickly on layout and
-          interaction before backend integration.
+          Create branded short links with custom aliases, password protection, expiration controls,
+          QR codes, and real-time analytics — all in one modern dashboard.
         </p>
 
         <div className="hero-actions">
           <a className="primary-action" href="#link-form">
             Create a short link
           </a>
-          <a className="secondary-action" href="#recent-links">
-            Jump to recent links
+          <a className="secondary-action" href="#links-table">
+            Manage links
           </a>
         </div>
 
@@ -31,7 +29,6 @@ function HeroSection() {
             {statusMessage}
           </div>
           {loadError ? <div className="error-pill">{loadError}</div> : null}
-          {actionError ? <div className="error-pill error-pill-inline">{actionError}</div> : null}
         </div>
       </div>
 
@@ -40,16 +37,20 @@ function HeroSection() {
         <div className="orbit orbit-two" />
         <div className="orbit-card main-card">
           <span>Live short link</span>
-          <strong>{generatedLink.shortUrl}</strong>
-          <p>{generatedLink.title}</p>
+          <strong>{generatedLink?.shortUrl || '—'}</strong>
+          <p>{generatedLink?.title || 'Your link'}</p>
         </div>
         <div className="orbit-card detail-card top-card">
           <span>Resolved domain</span>
-          <strong>{primaryDomain}</strong>
+          <strong>{primaryDomain || '—'}</strong>
         </div>
         <div className="orbit-card detail-card bottom-card">
           <span>Total clicks</span>
           <strong>{totalClicks.toLocaleString()}</strong>
+        </div>
+        <div className="orbit-card detail-card side-card">
+          <span>Workspace links</span>
+          <strong>{quickStats[0]?.value || '0'}</strong>
         </div>
       </div>
     </section>

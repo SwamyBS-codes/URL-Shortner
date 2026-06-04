@@ -1,5 +1,6 @@
 import { useLinkWorkspace } from '../context/LinkWorkspaceContext'
-import { QRCodeCanvas } from 'qrcode.react'
+import QrCodePanel from './ui/QrCodePanel'
+import StatusBadge from './ui/StatusBadge'
 
 function LinkBuilderSection() {
   const {
@@ -12,14 +13,19 @@ function LinkBuilderSection() {
     actionError,
     customAlias,
     setCustomAlias,
+    aliasStatus,
     protectWithPassword,
     setProtectWithPassword,
     password,
     setPassword,
+    showPassword,
+    setShowPassword,
     expirationType,
     setExpirationType,
-    expirationValue,
-    setExpirationValue,
+    expirationStartDate,
+    setExpirationStartDate,
+    expirationEndDate,
+    setExpirationEndDate,
   } = useLinkWorkspace()
 
   function handleSubmit(event) {
@@ -32,7 +38,7 @@ function LinkBuilderSection() {
       <form id="link-form" className="panel form-panel" onSubmit={handleSubmit}>
         <div className="panel-header">
           <span className="panel-tag">Generator</span>
-          <h2>Short link builder</h2>
+          <h2>Create a short link</h2>
         </div>
 
         <label>
@@ -41,20 +47,28 @@ function LinkBuilderSection() {
             type="url"
             value={longUrl}
             onChange={(event) => setLongUrl(event.target.value)}
-            placeholder="Enter the long URL"
+            placeholder="https://example.com/very-long-url"
             autoComplete="off"
+            required
           />
         </label>
 
         <label>
-          Custom alias
+          Custom alias (optional)
           <input
             type="text"
             value={customAlias}
             onChange={(event) => setCustomAlias(event.target.value)}
-            placeholder="my-portfolio or my-special-link"
+            placeholder="my-portfolio"
             autoComplete="off"
           />
+          {aliasStatus ? (
+            <span className={`alias-status ${aliasStatus.available ? 'available' : 'taken'}`}>
+              {aliasStatus.available ? '✓ Available' : `✗ ${aliasStatus.reason}`}
+            </span>
+          ) : customAlias.trim().length > 0 && customAlias.trim().length < 4 ? (
+            <span className="alias-status hint">Minimum 4 characters</span>
+          ) : null}
         </label>
 
         <div className="field-grid">
@@ -64,7 +78,7 @@ function LinkBuilderSection() {
               checked={protectWithPassword}
               onChange={(event) => setProtectWithPassword(event.target.checked)}
             />
-            Password protect link
+            Password protect
           </label>
 
           <label>
@@ -77,7 +91,7 @@ function LinkBuilderSection() {
               <option value="1d">1 day</option>
               <option value="7d">7 days</option>
               <option value="30d">30 days</option>
-              <option value="date">Choose date</option>
+              <option value="custom_range">Custom date range</option>
             </select>
           </label>
         </div>
@@ -85,79 +99,101 @@ function LinkBuilderSection() {
         {protectWithPassword ? (
           <label>
             Access password
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter a secure password"
-              autoComplete="new-password"
-            />
+            <div className="password-field">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Enter a secure password"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </label>
         ) : null}
 
-        {expirationType === 'date' ? (
-          <label>
-            Expire on
-            <input
-              type="datetime-local"
-              value={expirationValue}
-              onChange={(event) => setExpirationValue(event.target.value)}
-            />
-          </label>
+        {expirationType === 'custom_range' ? (
+          <div className="date-range-grid">
+            <label>
+              Start date
+              <input
+                type="datetime-local"
+                value={expirationStartDate}
+                onChange={(event) => setExpirationStartDate(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              End date
+              <input
+                type="datetime-local"
+                value={expirationEndDate}
+                onChange={(event) => setExpirationEndDate(event.target.value)}
+                required
+              />
+            </label>
+          </div>
         ) : null}
-
-        <div className="form-note">
-          Use this panel as a pure UI sandbox: shape labels, helper text, and
-          field grouping without relying on API responses.
-        </div>
 
         {actionError ? <div className="error-pill">{actionError}</div> : null}
 
         <button className="form-button" type="submit" disabled={isCreating}>
-          {isCreating ? 'Creating...' : 'Generate short link'}
+          {isCreating ? 'Creating…' : 'Generate short link'}
         </button>
       </form>
 
       <aside className="panel preview-panel">
         <div className="panel-header">
           <span className="panel-tag">Preview</span>
-          <h2>Generated link card</h2>
+          <h2>Generated link</h2>
         </div>
 
-        <div className="preview-card">
-          <span className="preview-label">Short URL</span>
-          <strong>{generatedLink.shortUrl}</strong>
-          <p>{generatedLink.longUrl}</p>
+        {generatedLink ? (
+          <>
+            <div className="preview-card">
+              <span className="preview-label">Short URL</span>
+              <strong className="preview-short-url">{generatedLink.shortUrl}</strong>
+              <p className="preview-long-url">{generatedLink.longUrl}</p>
+              <StatusBadge status={generatedLink.status} />
 
-          <div className="qr-zone">
-            <QRCodeCanvas value={generatedLink.shortUrl} size={138} />
-            <p>Scan the QR code to open the link instantly.</p>
-          </div>
+              <QrCodePanel value={generatedLink.shortUrl} size={148} />
 
-          <div className="preview-actions">
-            <button type="button" onClick={() => copyShortLink(generatedLink.shortUrl)}>
-              Copy link
-            </button>
-            <a href={generatedLink.shortUrl} target="_blank" rel="noreferrer noopener">
-              Open link
-            </a>
-          </div>
-        </div>
+              <div className="preview-actions">
+                <button type="button" onClick={() => copyShortLink(generatedLink.shortUrl)}>
+                  Copy link
+                </button>
+                <a href={generatedLink.shortUrl} target="_blank" rel="noreferrer noopener">
+                  Open link
+                </a>
+              </div>
+            </div>
 
-        <div className="preview-meta">
-          <div>
-            <span>Code</span>
-            <strong>{generatedLink.code}</strong>
+            <div className="preview-meta">
+              <div>
+                <span>Code</span>
+                <strong>{generatedLink.code}</strong>
+              </div>
+              <div>
+                <span>Clicks</span>
+                <strong>{generatedLink.clicks}</strong>
+              </div>
+              <div>
+                <span>Created</span>
+                <strong>{generatedLink.createdAt}</strong>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="preview-empty">
+            <p>Your generated link and QR code will appear here.</p>
           </div>
-          <div>
-            <span>Status</span>
-            <strong>{generatedLink.status}</strong>
-          </div>
-          <div>
-            <span>Created</span>
-            <strong>{generatedLink.createdAt}</strong>
-          </div>
-        </div>
+        )}
       </aside>
     </section>
   )

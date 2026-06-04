@@ -10,4 +10,12 @@ const httpClient = axios.create({
   timeout: 10000,
 })
 
+export function setAuthToken(token) {
+  if (token) {
+    httpClient.defaults.headers.common.Authorization = `Bearer ${token}`
+  } else {
+    delete httpClient.defaults.headers.common.Authorization
+  }
+}
+
 export default httpClient

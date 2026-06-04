@@ -1,9 +1,11 @@
 import postgresPool from '../db.js'
+import { formatLinkRow } from '../utils/formatLink.js'
 
 export const listLinks = async (req, res) => {
   try {
-    const links = await getAllLinksData()
-    res.send({ success: true, links })
+    const userId = req.user?.id ?? null
+    const links = await getAllLinksData(userId)
+    res.send({ success: true, links: links.map((row) => formatLinkRow(row)) })
   } catch (error) {
     console.error('Error fetching links:', error)
     res.status(500).json({ error: 'Failed to fetch links' })
@@ -32,6 +34,10 @@ export async function addUrl(record) {
       is_password_protected,
       expiration_type,
       expires_at,
+      user_id,
+      starts_at,
+      folder,
+      tags,
     } = record
 
     const result = await postgresPool`
@@ -43,7 +49,11 @@ export async function addUrl(record) {
         password_hash,
         is_password_protected,
         expiration_type,
-        expires_at
+        expires_at,
+        user_id,
+        starts_at,
+        folder,
+        tags
       ) values (
         ${original_url},
         ${short_code},
@@ -52,7 +62,11 @@ export async function addUrl(record) {
         ${password_hash},
         ${is_password_protected},
         ${expiration_type},
-        ${expires_at}
+        ${expires_at},
+        ${user_id ?? null},
+        ${starts_at ?? null},
+        ${folder ?? null},
+        ${Array.isArray(tags) ? tags : []}
       ) returning *
     `
 
@@ -151,17 +165,28 @@ export async function recordVisit(urlId, visit) {
   }
 }
 
-export async function getDashboardStats() {
+export async function getDashboardStats(userId = null) {
   try {
-    const stats = await postgresPool`
-      select
-        count(*)::int as total_links,
-        coalesce(sum(click_count), 0)::int as total_clicks,
-        coalesce(max(click_count), 0)::int as max_clicks,
-        coalesce(avg(click_count), 0)::float as avg_clicks,
-        count(*) filter (where is_password_protected) as protected_links
-      from urls
-    `
+    const stats = userId
+      ? await postgresPool`
+          select
+            count(*)::int as total_links,
+            coalesce(sum(click_count), 0)::int as total_clicks,
+            coalesce(max(click_count), 0)::int as max_clicks,
+            coalesce(avg(click_count), 0)::float as avg_clicks,
+            count(*) filter (where is_password_protected) as protected_links
+          from urls
+          where user_id = ${userId}
+        `
+      : await postgresPool`
+          select
+            count(*)::int as total_links,
+            coalesce(sum(click_count), 0)::int as total_clicks,
+            coalesce(max(click_count), 0)::int as max_clicks,
+            coalesce(avg(click_count), 0)::float as avg_clicks,
+            count(*) filter (where is_password_protected) as protected_links
+          from urls
+        `
     return stats[0]
   } catch (error) {
     console.error('Error getting dashboard stats:', error)
@@ -181,8 +206,13 @@ export async function getRecentLinks(limit = 10) {
   }
 }
 
-export async function getAllLinksData() {
+export async function getAllLinksData(userId = null) {
   try {
+    if (userId) {
+      return await postgresPool`
+        select * from urls where user_id = ${userId} order by created_at desc
+      `
+    }
     return await postgresPool`select * from urls order by created_at desc`
   } catch (error) {
     console.error('Error fetching all links data:', error)
@@ -190,10 +220,140 @@ export async function getAllLinksData() {
   }
 }
 
+export async function updateUrl(shortCode, updates) {
+  try {
+    const existing = await queryUrlByShortCode(shortCode)
+    const merged = {
+      original_url: updates.original_url ?? existing.original_url,
+      short_code: updates.short_code ?? existing.short_code,
+      custom_alias: updates.custom_alias !== undefined ? updates.custom_alias : existing.custom_alias,
+      password_hash: updates.password_hash !== undefined ? updates.password_hash : existing.password_hash,
+      is_password_protected: updates.is_password_protected ?? existing.is_password_protected,
+      expiration_type: updates.expiration_type !== undefined ? updates.expiration_type : existing.expiration_type,
+      expires_at: updates.expires_at !== undefined ? updates.expires_at : existing.expires_at,
+      starts_at: updates.starts_at !== undefined ? updates.starts_at : existing.starts_at,
+      is_active: updates.is_active ?? existing.is_active,
+      folder: updates.folder !== undefined ? updates.folder : existing.folder,
+      tags: updates.tags !== undefined ? updates.tags : existing.tags,
+    }
+
+    const result = await postgresPool`
+      update urls set
+        original_url = ${merged.original_url},
+        short_code = ${merged.short_code},
+        custom_alias = ${merged.custom_alias},
+        password_hash = ${merged.password_hash},
+        is_password_protected = ${merged.is_password_protected},
+        expiration_type = ${merged.expiration_type},
+        expires_at = ${merged.expires_at},
+        starts_at = ${merged.starts_at},
+        is_active = ${merged.is_active},
+        folder = ${merged.folder},
+        tags = ${Array.isArray(merged.tags) ? merged.tags : []},
+        updated_at = now()
+      where short_code = ${shortCode}
+      returning *
+    `
+
+    return result[0]
+  } catch (error) {
+    console.error('Error updating url:', error)
+    throw error
+  }
+}
+
+export async function deleteUrl(shortCode, userId = null) {
+  try {
+    const result = userId
+      ? await postgresPool`
+          delete from urls where short_code = ${shortCode} and user_id = ${userId} returning id
+        `
+      : await postgresPool`
+          delete from urls where short_code = ${shortCode} returning id
+        `
+
+    if (result.length === 0) {
+      throw new Error(`Short link with code '${shortCode}' not found`)
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error deleting url:', error)
+    throw error
+  }
+}
+
+export async function getUniqueVisitorCount(urlId) {
+  try {
+    const result = await postgresPool`
+      select count(distinct ip_address)::int as unique_visitors
+      from url_visits
+      where url_id = ${urlId} and ip_address is not null
+    `
+    return result[0]?.unique_visitors || 0
+  } catch (error) {
+    console.error('Error counting unique visitors:', error)
+    throw error
+  }
+}
+
+export async function getVisitBreakdown(urlId) {
+  try {
+    const [devices, browsers, osList, countries, referrers] = await Promise.all([
+      postgresPool`
+        select device as label, count(*)::int as count
+        from url_visits where url_id = ${urlId} and device is not null
+        group by device order by count desc limit 10
+      `,
+      postgresPool`
+        select browser as label, count(*)::int as count
+        from url_visits where url_id = ${urlId} and browser is not null
+        group by browser order by count desc limit 10
+      `,
+      postgresPool`
+        select os as label, count(*)::int as count
+        from url_visits where url_id = ${urlId} and os is not null
+        group by os order by count desc limit 10
+      `,
+      postgresPool`
+        select coalesce(country, 'Unknown') as label, count(*)::int as count
+        from url_visits where url_id = ${urlId}
+        group by country order by count desc limit 10
+      `,
+      postgresPool`
+        select coalesce(referrer, 'Direct') as label, count(*)::int as count
+        from url_visits where url_id = ${urlId}
+        group by referrer order by count desc limit 10
+      `,
+    ])
+
+    return { devices, browsers, os: osList, countries, referrers }
+  } catch (error) {
+    console.error('Error fetching visit breakdown:', error)
+    throw error
+  }
+}
+
+export async function getClicksOverTime(urlId, days = 30) {
+  try {
+    return await postgresPool`
+      select date_trunc('day', visited_at) as day, count(*)::int as clicks
+      from url_visits
+      where url_id = ${urlId}
+        and visited_at >= now() - (${days} || ' days')::interval
+      group by day
+      order by day asc
+    `
+  } catch (error) {
+    console.error('Error fetching clicks over time:', error)
+    throw error
+  }
+}
+
 export async function getLinkAnalytics(shortCode) {
   try {
     const [url] = await postgresPool`
-      select id, short_code, original_url, click_count, created_at, updated_at, expires_at, is_password_protected
+      select *
       from urls
       where short_code = ${shortCode}
       limit 1
@@ -203,15 +363,34 @@ export async function getLinkAnalytics(shortCode) {
       throw new Error(`Short link with code '${shortCode}' not found`)
     }
 
-    const visits = await postgresPool`
-      select ip_address, country, device, browser, os, referrer, visited_at
-      from url_visits
-      where url_id = ${url.id}
-      order by visited_at desc
-      limit 50
-    `
+    const [visits, uniqueVisitors, breakdown, clicksOverTime] = await Promise.all([
+      postgresPool`
+        select ip_address, country, device, browser, os, referrer, visited_at
+        from url_visits
+        where url_id = ${url.id}
+        order by visited_at desc
+        limit 50
+      `,
+      getUniqueVisitorCount(url.id),
+      getVisitBreakdown(url.id),
+      getClicksOverTime(url.id),
+    ])
 
-    return { url, visits }
+    const lastAccessed = visits[0]?.visited_at || null
+
+    return {
+      url,
+      visits,
+      summary: {
+        total_clicks: url.click_count,
+        unique_visitors: uniqueVisitors,
+        last_accessed: lastAccessed,
+        created_at: url.created_at,
+        expires_at: url.expires_at,
+      },
+      breakdown,
+      clicks_over_time: clicksOverTime,
+    }
   } catch (error) {
     console.error('Error fetching link analytics:', error)
     throw error

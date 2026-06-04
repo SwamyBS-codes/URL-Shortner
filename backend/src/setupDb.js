@@ -56,6 +56,30 @@ export async function setupDatabase() {
     create index if not exists url_visits_url_id_idx on url_visits (url_id)
   `
 
+  await postgresPool`
+    alter table urls add column if not exists user_id bigint references users(id) on delete set null
+  `
+
+  await postgresPool`
+    alter table urls add column if not exists starts_at timestamptz
+  `
+
+  await postgresPool`
+    alter table urls add column if not exists folder text
+  `
+
+  await postgresPool`
+    alter table urls add column if not exists tags text[] not null default '{}'
+  `
+
+  await postgresPool`
+    create index if not exists urls_user_id_idx on urls (user_id)
+  `
+
+  await postgresPool`
+    create index if not exists urls_folder_idx on urls (folder) where folder is not null
+  `
+
   console.log('Database schema is ready')
 }
 

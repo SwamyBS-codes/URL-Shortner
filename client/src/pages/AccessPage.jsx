@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import httpClient from '../api/httpClient'
+import { fetchLinkMetadata, verifyLinkPassword } from '../api/linksApi'
 import { useToast } from '../context/ToastContext'
+import ShortifyLogo from '../components/ShortifyLogo'
 
 function AccessPage() {
   const { code } = useParams()
   const { addToast } = useToast()
   const [link, setLink] = useState(null)
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [isVerifying, setIsVerifying] = useState(false)
@@ -16,11 +18,11 @@ function AccessPage() {
     let isMounted = true
     async function loadMetadata() {
       try {
-        const { data } = await httpClient.get(`/links/${code}`)
+        const metadata = await fetchLinkMetadata(code)
         if (!isMounted) return
-        setLink(data.link)
+        setLink(metadata)
       } catch (err) {
-        setError(err?.response?.data?.error || err.message || 'Unable to load link details')
+        setError(err.message || 'Unable to load link details')
       } finally {
         if (isMounted) setIsLoading(false)
       }
@@ -38,10 +40,10 @@ function AccessPage() {
     setError('')
 
     try {
-      const { data } = await httpClient.post(`/links/${code}/verify`, { password })
+      const data = await verifyLinkPassword(code, password)
       window.location.href = data.redirect_url
     } catch (err) {
-      const message = err?.response?.data?.error || err.message || 'Verification failed'
+      const message = err.message || 'Verification failed'
       setError(message)
       addToast(message, 'error')
     } finally {
@@ -51,61 +53,75 @@ function AccessPage() {
 
   if (isLoading) {
     return (
-      <main className="access-page">
-        <div className="loading-card">
-          <p>Loading link details...</p>
+      <main className="standalone-page">
+        <div className="standalone-card">
+          <div className="loading-spinner" />
+          <p style={{ marginTop: 16 }}>Loading secure link…</p>
         </div>
       </main>
     )
   }
 
-  if (error) {
+  if (!link && error) {
     return (
-      <main className="access-page">
-        <div className="error-panel">
+      <main className="standalone-page">
+        <div className="standalone-card">
+          <ShortifyLogo />
           <h1>Cannot open link</h1>
           <p>{error}</p>
-          <Link to="/">Return to dashboard</Link>
+          <Link to="/" className="btn btn-primary" style={{ marginTop: 24 }}>
+            Return to dashboard
+          </Link>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="access-page">
-      <section className="panel access-panel">
-        <div className="panel-header">
-          <span className="panel-tag">Secure link</span>
-          <h2>Protected access for {link.short_code}</h2>
+    <main className="standalone-page access-page">
+      <div className="standalone-card access-card">
+        <ShortifyLogo />
+        <div className="standalone-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
         </div>
-
-        <p className="panel-copy">This link is password protected. Enter the password to unlock and continue.</p>
+        <h1>Password protected</h1>
+        <p>Enter the password to unlock this link and continue.</p>
 
         <form onSubmit={handleVerify} className="access-form">
           <label>
             Password
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter the link password"
-              autoComplete="current-password"
-            />
+            <div className="password-row">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Enter the link password"
+                autoComplete="current-password"
+                autoFocus
+              />
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowPassword((v) => !v)}>
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </label>
 
-          {error ? <div className="error-pill inline">{error}</div> : null}
+          {error ? <div className="alert alert-error">{error}</div> : null}
 
-          <button type="submit" disabled={isVerifying || !password.trim()}>
-            {isVerifying ? 'Verifying…' : 'Unlock link'}
+          <button type="submit" className="btn btn-primary access-submit" disabled={isVerifying || !password.trim()}>
+            {isVerifying ? 'Verifying…' : 'Unlock & continue'}
           </button>
         </form>
 
         <div className="link-summary">
-          <span>Original URL</span>
-          <strong>{link.original_url}</strong>
+          <span>Short URL</span>
+          <strong>{link.shortUrl}</strong>
         </div>
-      </section>
+      </div>
     </main>
   )
 }
+
 export default AccessPage
