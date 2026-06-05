@@ -63,7 +63,7 @@ function parseAxiosError(error) {
 
 export async function fetchAllLinks() {
   try {
-    const { data } = await httpClient.get('/listAllLinks')
+    const { data } = await httpClient.get('/links')
     return Array.isArray(data.links) ? data.links.map(toUiLink) : []
   } catch (error) {
     throw new Error(parseAxiosError(error))

@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
-import { initialLinks } from '../data/mockLinks'
 import { getHostname } from '../utils/linkUtils'
 import {
   createLink,
@@ -32,9 +31,9 @@ export function LinkWorkspaceProvider({ children }) {
   const { addToast } = useToast()
   const { user, isAuthLoading } = useAuth()
   const [longUrl, setLongUrl] = useState('')
-  const [links, setLinks] = useState(initialLinks)
+  const [links, setLinks] = useState([])
   const [statusMessage, setStatusMessage] = useState('Ready to generate a branded short link.')
-  const [generatedLink, setGeneratedLink] = useState(initialLinks[0])
+  const [generatedLink, setGeneratedLink] = useState(null)
   const [customAlias, setCustomAlias] = useState('')
   const [aliasStatus, setAliasStatus] = useState(null)
   const [protectWithPassword, setProtectWithPassword] = useState(false)
@@ -96,7 +95,13 @@ export function LinkWorkspaceProvider({ children }) {
       setIsLoading(true)
       setLoadError('')
       try {
-        await Promise.all([refreshLinks(), refreshDashboard()])
+        if (!user) {
+          setLinks([])
+          setGeneratedLink(null)
+          setDashboardStats(null)
+        } else {
+          await Promise.all([refreshLinks(), refreshDashboard()])
+        }
       } catch (error) {
         if (isMounted) {
           setLoadError(error.message || 'Backend unreachable.')
