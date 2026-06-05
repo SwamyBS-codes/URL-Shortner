@@ -130,11 +130,11 @@ function assertLinkOwnership(link, userId) {
   }
 }
 
-export async function getAllLinks(userId = null) {
+export async function getAllLinks(userId = null, baseUrl = BASE_URL) {
   const links = await getAllLinksData(userId)
   return {
     success: true,
-    links: links.map((row) => formatLinkRow(row)),
+    links: links.map((row) => formatLinkRow(row, baseUrl)),
   }
 }
 
@@ -150,7 +150,7 @@ export async function checkAliasAvailability(alias) {
   return { available: !exists, reason: exists ? 'Alias already taken' : null }
 }
 
-export async function createShortLink(input, userId = null) {
+export async function createShortLink(input, userId = null, baseUrl = BASE_URL) {
   if (!input || typeof input !== 'object') {
     throw new Error('Input must be an object with url')
   }
@@ -171,13 +171,13 @@ export async function createShortLink(input, userId = null) {
   }
 
   const existingLink = await queryUrlByOriginalUrl(normalizedUrl)
-  if (existingLink && !customAlias && !password && !input.expirationType) {
+    if (existingLink && !customAlias && !password && !input.expirationType) {
     if (canCacheLink(existingLink)) {
       await setCachedOriginalUrl(existingLink.short_code, existingLink.original_url)
     }
     return {
       success: true,
-      ...formatLinkRow(existingLink),
+      ...formatLinkRow(existingLink, baseUrl),
       reused: true,
     }
   }
@@ -228,7 +228,7 @@ export async function createShortLink(input, userId = null) {
 
   return {
     success: true,
-    ...formatLinkRow(saved),
+    ...formatLinkRow(saved, baseUrl),
     reused: false,
   }
 }
@@ -255,13 +255,13 @@ function assertLinkActive(link) {
   }
 }
 
-export async function getLinkMetadata(code, options = {}) {
+export async function getLinkMetadata(code, options = {}, baseUrl = BASE_URL) {
   if (!code || typeof code !== 'string') {
     throw new Error('Code is required')
   }
 
   const link = await queryUrlByShortCode(code.trim())
-  const formatted = formatLinkRow(link)
+  const formatted = formatLinkRow(link, baseUrl)
 
   if (options.hideDestination || link.is_password_protected) {
     return {
@@ -339,7 +339,7 @@ export async function resolveShortLink(code, visitMetadata = {}) {
   return link.original_url
 }
 
-export async function updateShortLink(code, input, userId = null) {
+export async function updateShortLink(code, input, userId = null, baseUrl = BASE_URL) {
   const existing = await queryUrlByShortCode(code.trim())
   assertLinkOwnership(existing, userId)
   const updates = {}
@@ -409,7 +409,7 @@ export async function updateShortLink(code, input, userId = null) {
 
   return {
     success: true,
-    ...formatLinkRow(saved),
+    ...formatLinkRow(saved, baseUrl),
   }
 }
 
@@ -488,9 +488,9 @@ function canManageLink(link, userId) {
   }
 }
 
-export async function getLinkSettings(code, userId = null) {
+export async function getLinkSettings(code, userId = null, baseUrl = BASE_URL) {
   const link = await queryUrlByShortCode(code.trim())
-  const formatted = formatLinkRow(link)
+  const formatted = formatLinkRow(link, baseUrl)
   const isOwner = canManageLink(link, userId)
 
   const safe = {
@@ -514,7 +514,7 @@ export async function getLinkSettings(code, userId = null) {
   return safe
 }
 
-export async function getDashboardSummary(userId = null) {
+export async function getDashboardSummary(userId = null, baseUrl = BASE_URL) {
   const stats = await getDashboardStats(userId)
   const recentLinks = userId
     ? (await getAllLinksData(userId)).slice(0, 10)
@@ -529,14 +529,14 @@ export async function getDashboardSummary(userId = null) {
       avg_clicks: Number(stats.avg_clicks).toFixed(2),
       protected_links: Number(stats.protected_links || 0),
     },
-    recent_links: recentLinks.map((row) => formatLinkRow(row)),
+    recent_links: recentLinks.map((row) => formatLinkRow(row, baseUrl)),
   }
 }
 
-export async function getLinkAnalyticsSummary(code) {
+export async function getLinkAnalyticsSummary(code, baseUrl = BASE_URL) {
   const analytics = await getLinkAnalytics(code)
   return {
     ...analytics,
-    url: formatLinkRow(analytics.url),
+    url: formatLinkRow(analytics.url, baseUrl),
   }
 }

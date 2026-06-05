@@ -1,7 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
-import { PORT, CLIENT_URL } from './config.js'
+import { PORT, CLIENT_URL, BASE_URL } from './config.js'
 import { initRedisCache } from './cache/redisCache.js'
 import { setupDatabase } from './setupDb.js'
 import {
@@ -131,7 +131,8 @@ app.get('/api/listAllLinks', async (req, res) => {
 
 app.get('/api/links', async (req, res) => {
   try {
-    const result = await getAllLinks(req.user?.id ?? null)
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
+    const result = await getAllLinks(req.user?.id ?? null, baseUrl)
     res.json(result)
   } catch (error) {
     console.error('Error listing links:', error)
@@ -170,7 +171,8 @@ app.post('/api/links/bulk', async (req, res) => {
 
 app.get('/api/links/:code/settings', async (req, res) => {
   try {
-    const settings = await getLinkSettings(req.params.code, req.user?.id ?? null)
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
+    const settings = await getLinkSettings(req.params.code, req.user?.id ?? null, baseUrl)
     res.json({ success: true, link: settings })
   } catch (error) {
     console.error('Error fetching link settings:', error)
@@ -180,7 +182,8 @@ app.get('/api/links/:code/settings', async (req, res) => {
 
 app.get('/api/links/:code', async (req, res) => {
   try {
-    const metadata = await getLinkMetadata(req.params.code, { hideDestination: true })
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
+    const metadata = await getLinkMetadata(req.params.code, { hideDestination: true }, baseUrl)
     res.json({ success: true, link: metadata })
   } catch (error) {
     console.error('Error fetching link metadata:', error)
@@ -190,7 +193,8 @@ app.get('/api/links/:code', async (req, res) => {
 
 app.post('/api/createlink', async (req, res) => {
   try {
-    const result = await createShortLink(req.body, req.user?.id ?? null)
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
+    const result = await createShortLink(req.body, req.user?.id ?? null, baseUrl)
     res.json(result)
   } catch (error) {
     console.error('Error creating short link:', error)
@@ -200,7 +204,8 @@ app.post('/api/createlink', async (req, res) => {
 
 app.put('/api/links/:code', async (req, res) => {
   try {
-    const result = await updateShortLink(req.params.code, req.body, req.user?.id ?? null)
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
+    const result = await updateShortLink(req.params.code, req.body, req.user?.id ?? null, baseUrl)
     res.json(result)
   } catch (error) {
     console.error('Error updating link:', error)
@@ -231,7 +236,8 @@ app.post('/api/links/:code/verify', async (req, res) => {
 
 app.get('/api/links/:code/analytics', async (req, res) => {
   try {
-    const analytics = await getLinkAnalyticsSummary(req.params.code)
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
+    const analytics = await getLinkAnalyticsSummary(req.params.code, baseUrl)
     res.json({ success: true, analytics })
   } catch (error) {
     console.error('Error fetching analytics:', error)
@@ -241,7 +247,8 @@ app.get('/api/links/:code/analytics', async (req, res) => {
 
 app.get('/api/dashboard', async (req, res) => {
   try {
-    const summary = await getDashboardSummary(req.user?.id ?? null)
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
+    const summary = await getDashboardSummary(req.user?.id ?? null, baseUrl)
     res.json(summary)
   } catch (error) {
     console.error('Error fetching dashboard summary:', error)
@@ -283,6 +290,7 @@ async function startServer() {
 
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`)
+    console.log(`BASE_URL=${BASE_URL} CLIENT_URL=${CLIENT_URL}`)
   })
 }
 

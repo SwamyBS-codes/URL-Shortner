@@ -5,7 +5,8 @@ export const listLinks = async (req, res) => {
   try {
     const userId = req.user?.id ?? null
     const links = await getAllLinksData(userId)
-    res.send({ success: true, links: links.map((row) => formatLinkRow(row)) })
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
+    res.send({ success: true, links: links.map((row) => formatLinkRow(row, baseUrl)) })
   } catch (error) {
     console.error('Error fetching links:', error)
     res.status(500).json({ error: 'Failed to fetch links' })
@@ -16,7 +17,8 @@ export const getLinkByCode = async (req, res) => {
   try {
     const { code } = req.params
     const linkByCode = await queryUrlByShortCode(code)
-    res.send({ success: true, link: linkByCode })
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
+    res.send({ success: true, link: formatLinkRow(linkByCode, baseUrl) })
   } catch (error) {
     console.error('Error fetching link by code:', error)
     res.status(500).json({ error: 'Failed to fetch link' })
