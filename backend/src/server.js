@@ -27,7 +27,32 @@ const app = express()
 app.set('trust proxy', 1)
 app.use(helmet())
 app.use(express.json({ limit: '16kb' }))
-app.use(cors({ origin: process.env.CLIENT_URL || true }))
+const rawClientUrls = process.env.CLIENT_URL || ''
+const allowedOrigins = rawClientUrls.split(',').map((s) => s.trim()).filter(Boolean)
+if (allowedOrigins.length === 0) {
+  allowedOrigins.push('http://localhost:5173')
+}
+// include known production frontend by default
+if (!allowedOrigins.includes('https://shortify-urlshortner.vercel.app')) {
+  allowedOrigins.push('https://shortify-urlshortner.vercel.app')
+}
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.includes(origin)) return callback(null, true)
+    callback(new Error('Not allowed by CORS'))
+  },
+  credentials: true,
+}
+app.use(cors(corsOptions))
+// Some path-to-regexp versions reject '*' when registering routes.
+// Handle preflight OPTIONS requests with the CORS middleware directly instead.
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return cors(corsOptions)(req, res, next)
+  }
+  next()
+})
 app.use(optionalAuth)
 
 function handleServiceError(res, error, fallback = 'Request failed') {
