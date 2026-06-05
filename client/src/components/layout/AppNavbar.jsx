@@ -12,6 +12,7 @@ const NAV_ITEMS = [
 
 function AppNavbar() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const location = useLocation()
   const isHome = location.pathname === '/'
   const { user, isAuthenticated, openAuthModal, logout } = useAuth()
@@ -42,13 +43,41 @@ function AppNavbar() {
         <div className="navbar-right">
           <ThemeToggle />
           {isAuthenticated ? (
-            <div className="navbar-user">
-              <span className="navbar-user-name" title={user.email}>
-                {user.name}
-              </span>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>
-                Sign out
+            <div className="navbar-profile-wrapper">
+              <button
+                type="button"
+                className="navbar-profile-btn"
+                onClick={() => setProfileOpen(!profileOpen)}
+                aria-label="User profile menu"
+              >
+                <div className="navbar-profile-avatar">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
               </button>
+              {profileOpen && (
+                <div className="navbar-profile-menu">
+                  <div className="navbar-profile-header">
+                    <div className="navbar-profile-avatar-lg">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="navbar-profile-name">{user.name}</p>
+                      <p className="navbar-profile-email">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="navbar-profile-divider" />
+                  <button
+                    type="button"
+                    className="navbar-profile-signout"
+                    onClick={() => {
+                      logout()
+                      setProfileOpen(false)
+                    }}
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -60,13 +89,6 @@ function AppNavbar() {
               </button>
             </>
           )}
-          <a href="/#shortener" className="btn btn-primary btn-sm navbar-cta">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-            Shorten URL
-          </a>
           <button
             type="button"
             className="navbar-burger"
@@ -107,9 +129,6 @@ function AppNavbar() {
               </button>
             </>
           )}
-          <a href="/#shortener" className="btn btn-primary" onClick={() => setMenuOpen(false)}>
-            Shorten URL
-          </a>
         </div>
       ) : null}
     </header>
