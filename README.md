@@ -1,4 +1,7 @@
 # URL Shortener Workspace
+## Live Demo
+
+🌐 https://shortify-urlshortner.vercel.app/
 
 This workspace contains a finished frontend in `client/` and backend boilerplate in `backend/`.
 
